@@ -13,7 +13,7 @@ const io = new Server(server, {
 
 gameSocket(io);
 
-const PORT = 5000;
+const PORT = 8080;
 
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
