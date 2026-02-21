@@ -7,7 +7,7 @@ app.use(express.json());
 app.use(cors());
 
 app.get("/", (req, res) => {
-  res.send("server running ");
+  res.send("server running for skribbl clone ");
 });
 
 export default app;
