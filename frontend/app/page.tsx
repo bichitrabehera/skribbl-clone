@@ -1,107 +1,127 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
 interface Player {
   username: string;
 }
 
-let socket: Socket;
-
 export default function Home() {
+  const socketRef = useRef<Socket | null>(null);
+
   const [username, setUsername] = useState("");
   const [roomId, setRoomId] = useState("");
   const [players, setPlayers] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [isDrawer, setIsDrawer] = useState(false);
+  const [word, setWord] = useState<string | null>(null);
 
   useEffect(() => {
-    socket = io("http://localhost:5000");
+    // 🔥 Make sure this port matches your backend
+    socketRef.current = io("http://localhost:8080");
 
-    socket.on("connect", () => {
+    socketRef.current.on("connect", () => {
+      console.log("Connected:", socketRef.current?.id);
       setConnected(true);
     });
 
-    socket.on("players_update", (updatedPlayers: Player[]) => {
+    socketRef.current.on("players_updated", (updatedPlayers: Player[]) => {
       const names = updatedPlayers.map((p) => p.username);
       setPlayers(names);
     });
 
-    socket.on("disconnect", () => {
+    socketRef.current.on("your_word", (receivedWord: string) => {
+      console.log("WORD RECEIVED:", receivedWord);
+      setIsDrawer(true);
+      setWord(receivedWord);
+    });
+
+    socketRef.current.on("game_started", () => {
+      setIsDrawer(false);
+      setWord(null);
+    });
+
+    socketRef.current.on("disconnect", () => {
       setConnected(false);
       setJoined(false);
+      setPlayers([]);
     });
 
     return () => {
-      socket.disconnect();
+      socketRef.current?.disconnect();
     };
   }, []);
 
   const joinRoom = () => {
     if (!username || !roomId) return;
-
-    socket.emit("join_room", { username, roomId });
+    socketRef.current?.emit("join_room", { username, roomId });
     setJoined(true);
   };
 
+  const startGame = () => {
+    socketRef.current?.emit("start_game", roomId);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-      <div className="bg-gray-900 p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">
-          🎨 Skribbl Clone
-        </h1>
+    <div style={{ padding: 40 }}>
+      <h1>Skribbl Clone</h1>
 
-        {!joined ? (
-          <>
-            <input
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full mb-3 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
+      {!joined ? (
+        <>
+          <input
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <br />
+          <br />
+          <input
+            placeholder="Room ID"
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+          />
+          <br />
+          <br />
+          <button onClick={joinRoom}>Join Room</button>
+        </>
+      ) : (
+        <>
+          <p>
+            Joined room: <strong>{roomId}</strong>
+          </p>
 
-            <input
-              placeholder="Room ID"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              className="w-full mb-4 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
+          <h3>Players ({players.length})</h3>
+          <ul>
+            {players.map((player, index) => (
+              <li key={index}>
+                {player} {player === username && "(You)"}
+              </li>
+            ))}
+          </ul>
 
-            <button
-              onClick={joinRoom}
-              className="w-full bg-purple-600 hover:bg-purple-700 transition px-4 py-2 rounded-lg font-semibold"
-            >
-              Join Room
-            </button>
-          </>
-        ) : (
-          <div>
-            <div className="mb-4 p-3 bg-green-600/20 border border-green-500 rounded-lg text-green-400 text-sm">
-              ✅ You joined room <strong>{roomId}</strong>
-            </div>
+          {players.length >= 2 && (
+            <>
+              <br />
+              <button onClick={startGame}>Start Game</button>
+            </>
+          )}
 
-            <h2 className="text-lg font-semibold mb-2">
-              Players ({players.length})
-            </h2>
+          <hr />
 
-            <ul className="space-y-2">
-              {players.map((player, index) => (
-                <li key={index} className="bg-gray-800 px-4 py-2 rounded-lg">
-                  {player}
-                  {player === username && (
-                    <span className="ml-2 text-xs text-purple-400">(You)</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          {isDrawer && word && (
+            <p>
+              🎨 You are drawing. Word: <strong>{word}</strong>
+            </p>
+          )}
 
-        <div className="mt-6 text-xs text-gray-500 text-center">
-          Status: {connected ? "🟢 Connected" : "🔴 Disconnected"}
-        </div>
-      </div>
+          {!isDrawer && word === null && <p>Waiting for drawing...</p>}
+        </>
+      )}
+
+      <hr />
+      <p>Connected: {connected ? "Yes" : "No"}</p>
     </div>
   );
 }

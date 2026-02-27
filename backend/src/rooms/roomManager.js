@@ -4,6 +4,9 @@ export const createRoomIfNotExists = (roomId) => {
   if (!rooms[roomId]) {
     rooms[roomId] = {
       players: [],
+      currentWord: null,
+      currentDrawerIndex: 0,
+      gameStarted: false,
     };
   }
 };
@@ -24,9 +27,19 @@ export const removePlayerFromRoom = (socketId) => {
     rooms[roomId].players = rooms[roomId].players.filter(
       (player) => player.id !== socketId,
     );
-  }
 
-  if (rooms[roomId].players.length == 0) {
-    delete rooms[roomId];
+    if (rooms[roomId].players.length === 0) {
+      delete rooms[roomId];
+    }
   }
+};
+
+export const startGame = (roomId, word) => {
+  rooms[roomId].currentWord = word;
+  rooms[roomId].currentDrawerIndex = 0;
+  rooms[roomId].gameStarted = true;
+};
+
+export const getRooms = (roomId) => {
+  return rooms[roomId];
 };
